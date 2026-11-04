@@ -1,10 +1,14 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { fresnelFragment, fresnelVertex } from './shaders';
 
 // Estado compartilhado, lido dentro do loop de render (sem re-renderizar React).
-const input = { x: 0, y: 0, scroll: 0, active: true, moved: false };
+const input = { x: 0, y: 0, scroll: 0, moved: false };
+
+// "Ativo" é por instância: hero e contato montam duas cenas, e um estado global
+// fazia a cena do contato (fora da tela) desligar a do hero no primeiro carregamento.
+const ActiveCtx = createContext<{ current: boolean }>({ current: true });
 
 // Cursor projetado no plano da cena. Os quadros se afastam dele, o núcleo segue de leve,
 // e um clique dispara uma onda que expande a composição e acelera a rotação.
@@ -44,6 +48,7 @@ function camAt(p: number) {
 }
 
 function Frames({ variant }: { variant: Variant }) {
+  const active = useContext(ActiveCtx);
   const group = useRef<THREE.Group>(null);
   const count = variant === 'hero' ? 7 : 5;
   const items = useMemo(
@@ -81,7 +86,7 @@ function Frames({ variant }: { variant: Variant }) {
   useEffect(() => () => material.forEach((m) => m.dispose()), [material]);
 
   useFrame((state, dt) => {
-    if (!group.current || !input.active) return;
+    if (!group.current || !active.current) return;
     const t = state.clock.elapsedTime;
     const spread = variant === 'hero' ? 1 : 0.7;
     group.current.children.forEach((mesh, idx) => {
@@ -121,11 +126,12 @@ function Frames({ variant }: { variant: Variant }) {
 }
 
 function Core({ variant }: { variant: Variant }) {
+  const active = useContext(ActiveCtx);
   const mesh = useRef<THREE.Mesh>(null);
   const wire = useRef<THREE.Mesh>(null);
   const size = variant === 'hero' ? 1.1 : 1.6;
   useFrame((state, dt) => {
-    if (!mesh.current || !wire.current || !input.active) return;
+    if (!mesh.current || !wire.current || !active.current) return;
     const t = state.clock.elapsedTime;
     const pulse = 1 + Math.sin(t * 2.2) * 0.04 + pointer.burst * 0.35;
     mesh.current.scale.setScalar(pulse);
@@ -152,6 +158,7 @@ function Core({ variant }: { variant: Variant }) {
 }
 
 function Particles() {
+  const active = useContext(ActiveCtx);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     const n = 140;
@@ -167,7 +174,7 @@ function Particles() {
   useEffect(() => () => geo.dispose(), [geo]);
   const ref = useRef<THREE.Points>(null);
   useFrame((_, dt) => {
-    if (!ref.current || !input.active) return;
+    if (!ref.current || !active.current) return;
     ref.current.rotation.y += dt * (0.01 + pointer.burst * 0.8);
     ref.current.rotation.x += ((input.moved ? input.y * 0.12 : 0) - ref.current.rotation.x) * (1 - Math.pow(0.05, dt));
   });
@@ -179,13 +186,14 @@ function Particles() {
 }
 
 function Rig({ variant }: { variant: Variant }) {
+  const active = useContext(ActiveCtx);
   const { camera } = useThree();
   const root = useRef<THREE.Group>(null);
   const look = useMemo(() => new THREE.Vector3(), []);
   const target = useMemo(() => new THREE.Vector3(), []);
   useFrame((state, dt) => {
     pointer.burst *= Math.pow(0.03, dt);
-    if (!input.active) return;
+    if (!active.current) return;
     // Converte a posição do mouse em um ponto no plano z = 0 da cena.
     PTR.set(input.x, input.y, 0.5).unproject(state.camera);
     PTR.sub(state.camera.position).normalize();
@@ -215,6 +223,7 @@ function Rig({ variant }: { variant: Variant }) {
 
 export default function CinemaScene({ variant = 'hero', className = '' }: { variant?: Variant; className?: string }) {
   const wrap = useRef<HTMLDivElement>(null);
+  const active = useRef(true);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -227,7 +236,7 @@ export default function CinemaScene({ variant = 'hero', className = '' }: { vari
       const max = document.documentElement.scrollHeight - innerHeight;
       input.scroll = max > 0 ? scrollY / max : 0;
     };
-    const io = new IntersectionObserver(([en]) => { input.active = en.isIntersecting; }, { threshold: 0 });
+    const io = new IntersectionObserver(([en]) => { active.current = en.isIntersecting; }, { threshold: 0 });
     if (wrap.current) io.observe(wrap.current);
     addEventListener('pointermove', onMove, { passive: true });
     addEventListener('pointerdown', onDown, { passive: true });
@@ -253,7 +262,9 @@ export default function CinemaScene({ variant = 'hero', className = '' }: { vari
         <ambientLight intensity={0.35} />
         <directionalLight position={[4, 6, 5]} intensity={1.1} color="#fff1e6" />
         <pointLight position={[-6, -2, 4]} intensity={2.4} color="#ff5a1f" distance={18} />
-        <Rig variant={variant} />
+        <ActiveCtx.Provider value={active}>
+          <Rig variant={variant} />
+        </ActiveCtx.Provider>
       </Canvas>
     </div>
   );
