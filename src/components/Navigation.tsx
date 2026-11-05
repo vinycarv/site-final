@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { site } from '../data/content';
 import MagneticButton from './MagneticButton';
+import { LogoMark } from './Logo';
 
 const links = [
   { id: 'trabalhos', label: 'Trabalhos' },
-  { id: 'processo', label: 'Processo' },
-  { id: 'sobre', label: 'Sobre' },
-  { id: 'contato', label: 'Contato' },
+  { id: 'antes-depois', label: 'Antes/Depois' },
+  { id: 'metodo', label: 'Método' },
+  { id: 'faq', label: 'FAQ' },
 ];
 
 // Menu fixo: fica transparente no topo e ganha fundo translúcido ao rolar.
@@ -50,8 +51,11 @@ export default function Navigation({ ready }: { ready: boolean }) {
   return (
     <>
       <header className={`nav ${solid ? 'is-solid' : ''}`} style={{ opacity: ready ? 1 : 0, transition: 'opacity .8s .2s, background .5s, border-color .5s' }}>
-        <a className="nav__brand" href="#top" data-cursor="link">Vinícius <i>Carvalho</i></a>
-        <nav aria-label="Principal">
+        <a className="nav__brand" href="#top" data-cursor="link" aria-label="VNUP, início">
+          <LogoMark className="nav__mark" />
+          <span>VNUP</span>
+        </a>
+        <nav aria-label="Principal" className="nav__pill glass">
           <ul className="nav__links">
             {links.map((l) => (
               <li key={l.id}>
@@ -62,7 +66,8 @@ export default function Navigation({ ready }: { ready: boolean }) {
             ))}
           </ul>
         </nav>
-        <button className="nav__burger" aria-expanded={open} aria-controls="menu" aria-label={open ? 'Fechar menu' : 'Abrir menu'} onClick={() => setOpen((o) => !o)}>
+        <MagneticButton variant="glass" href="#contato" className="nav__cta">Entrar em contato</MagneticButton>
+        <button className="nav__burger glass" aria-expanded={open} aria-controls="menu" aria-label={open ? 'Fechar menu' : 'Abrir menu'} onClick={() => setOpen((o) => !o)}>
           <span />
         </button>
       </header>
@@ -74,6 +79,7 @@ export default function Navigation({ ready }: { ready: boolean }) {
               <a href={`#${l.id}`} tabIndex={open ? 0 : -1} onClick={() => setOpen(false)}>{l.label}</a>
             </li>
           ))}
+          <li><a href="#contato" tabIndex={open ? 0 : -1} onClick={() => setOpen(false)}>Contato</a></li>
           <li>
             <MagneticButton variant="wa" external href={site.whatsapp} tabIndex={open ? 0 : -1} style={{ marginTop: 20 }}>
               Chamar no WhatsApp

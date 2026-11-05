@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from '../lib/gsap';
-import { site } from '../data/content';
+import { LogoMark, LogoWord } from './Logo';
 
 type Props = { onDone: () => void; ready: boolean };
 
-// Contador baseado em etapas reais: fontes carregadas, página completa e cena 3D montada.
+// Contador baseado em etapas reais: fontes carregadas, página completa e cena montada.
 // Cada etapa só conta quando de fato termina; não há porcentagem falsa por tempo.
 export default function Preloader({ onDone, ready }: Props) {
   const [pct, setPct] = useState(0);
@@ -19,7 +19,9 @@ export default function Preloader({ onDone, ready }: Props) {
     const onLoad = () => setSteps((s) => ({ ...s, load: true }));
     if (document.readyState === 'complete') onLoad();
     else addEventListener('load', onLoad, { once: true });
-    return () => { cancelled = true; };
+    // trava de segurança: rede lenta não pode prender a pessoa na abertura
+    const cap = setTimeout(() => !cancelled && setSteps({ fonts: true, load: true, scene: true }), 2600);
+    return () => { cancelled = true; clearTimeout(cap); };
   }, []);
 
   useEffect(() => {
@@ -46,24 +48,18 @@ export default function Preloader({ onDone, ready }: Props) {
   }, [finished, onDone]);
 
   useEffect(() => {
-    const dot = document.querySelector('.pre__dot');
-    if (!dot) return;
-    gsap.fromTo(dot, { scale: 0 }, { scale: 1, duration: 0.8, ease: 'back.out(2)' });
-    gsap.fromTo('.pre__name .mask > span', { yPercent: 110 }, { yPercent: 0, duration: 1.1, ease: 'expo.out', stagger: 0.08, delay: 0.3 });
+    gsap.fromTo('.pre__mark', { clipPath: 'inset(100% 0 0 0)', scale: 0.9 }, { clipPath: 'inset(0% 0 0 0)', scale: 1, duration: 1.2, ease: 'expo.out' });
+    gsap.fromTo('.pre__word', { opacity: 0, letterSpacing: '0.4em', y: 10 }, { opacity: 1, y: 0, duration: 1, ease: 'expo.out', delay: 0.35 });
   }, []);
 
   if (done) return null;
 
   return (
     <div className="pre" ref={root} role="status" aria-live="polite" aria-label={`Carregando, ${pct}%`}>
-      <div className="pre__rec"><span className="rec-dot" />REC</div>
+      <div className="pre__rec mono"><span className="rec-dot" />REC</div>
       <div className="pre__center">
-        <div className="pre__dot" />
-        <div className="pre__name" aria-label={site.name}>
-          {site.name.split(' ').map((w) => (
-            <span className="mask" key={w} aria-hidden="true"><span>{w}</span></span>
-          ))}
-        </div>
+        <LogoMark className="pre__mark" />
+        <LogoWord className="pre__word" />
       </div>
       <div className="pre__line" />
       <div className="pre__count">{String(pct).padStart(3, '0')}<span>%</span></div>

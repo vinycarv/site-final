@@ -1,71 +1,62 @@
 import { useEffect, useRef } from 'react';
-import { site } from '../data/content';
-import { gsap, ScrollTrigger } from '../lib/gsap';
-import CinemaScene from '../three/CinemaScene';
+import { gsap } from '../lib/gsap';
+import HalftoneHands from '../components/HalftoneHands';
 import MagneticButton from '../components/MagneticButton';
-import MotionText from '../components/MotionText';
+import { LogoMark } from '../components/Logo';
+import { stats } from '../data/content';
 import { useEnvironment } from '../hooks/useEnvironment';
 
-// Abertura em tela cheia. Ao rolar, a cena encolhe para um quadro cinematográfico
-// (máscara com clip-path), e o título se afasta em profundidade.
+// Abertura: duas mãos robóticas em meio-tom apontam para o símbolo da VNUP.
+// Elas chegam perto, mas não se tocam. A resposta fica para o fim da página.
 export default function Hero({ ready }: { ready: boolean }) {
   const env = useEnvironment();
-  const frame = useRef<HTMLDivElement>(null);
-  const title = useRef<HTMLDivElement>(null);
-  const showScene = env.webgl && !env.reduced;
+  const root = useRef<HTMLElement>(null);
+  const clients = stats.find((s) => s.label.includes('clientes'));
 
   useEffect(() => {
-    if (!frame.current || !title.current || env.reduced) return;
+    if (!ready || !root.current) return;
     const ctx = gsap.context(() => {
-      gsap.fromTo(frame.current,
-        { clipPath: 'inset(0% 0% 0% 0% round 0px)' },
-        {
-          clipPath: 'inset(9% 14% 14% 14% round 6px)', ease: 'none',
-          scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
-        });
-      gsap.to(title.current, {
-        y: 180, z: -200, scale: 0.92, opacity: 0.1, ease: 'none',
-        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
+      if (env.reduced) return;
+      gsap.from('.hero__tile', { scale: 0.6, opacity: 0, duration: 1.6, ease: 'expo.out' });
+      gsap.from('.hero__reveal', { y: 30, opacity: 0, duration: 1.2, ease: 'expo.out', stagger: 0.1, delay: 0.5 });
+      gsap.to('.hero__tile', {
+        scale: 1.35, ease: 'none',
+        scrollTrigger: { trigger: root.current, start: 'top top', end: 'bottom top', scrub: true },
       });
-    });
+      gsap.to('.hero__bottom', {
+        y: -80, opacity: 0, ease: 'none',
+        scrollTrigger: { trigger: root.current, start: '20% top', end: '70% top', scrub: true },
+      });
+    }, root);
     return () => ctx.revert();
-  }, [env.reduced]);
-
-  useEffect(() => {
-    if (ready) ScrollTrigger.refresh();
-  }, [ready]);
+  }, [ready, env.reduced]);
 
   return (
-    <section className="hero" id="top" aria-labelledby="hero-title">
-      <div className="hero__clip" ref={frame}>
-        {showScene ? <CinemaScene variant="hero" /> : <div className="hero__fallback" aria-hidden="true" />}
-        <div className="hero__vignette" aria-hidden="true" />
+    <section className="hero" id="top" ref={root} aria-labelledby="hero-title">
+      <HalftoneHands mode="hero" className="hero__canvas" />
+      <div className="hero__tile glass" aria-hidden="true">
+        <LogoMark className="hero__mark" />
       </div>
 
-      <div className="hero__meta" style={{ opacity: ready ? 1 : 0, transition: 'opacity 1s .4s' }}>
-        <span className="mono rec"><span className="rec-dot" />{site.role}</span>
-        <span className="mono">Edição · Cor · Direção</span>
-      </div>
-
-      <div className="hero__content" ref={title}>
-        <h1 id="hero-title" className="display hero__title">
-          <MotionText as="span" mode="words" delay={ready ? 0 : 1.6} start="top 100%">
-            Histórias que prendem
-          </MotionText>
-          <br />
-          <MotionText as="span" className="hero__em" mode="words" delay={ready ? 0.15 : 1.75} start="top 100%">
-            a atenção
-          </MotionText>
+      <div className="hero__bottom">
+        <div className="hero__proof hero__reveal">
+          <span className="avatars" aria-hidden="true"><i /><i /><i /><i /></span>
+          <span><b>{clients ? `${clients.prefix}${clients.value}` : '+50'}</b> marcas já passaram por aqui</span>
+        </div>
+        <h1 id="hero-title" className="hero__title hero__reveal">
+          Sua marca em <span className="glass-text">movimento</span>.
         </h1>
-        <div className="hero__sub">
-          <p className="hero__lede reveal-fade" style={{ opacity: ready ? 1 : 0, transition: 'opacity 1.2s .9s' }}>{site.intro}</p>
-          <div className="hero__actions">
-            <MagneticButton variant="primary" href="#trabalhos" data-cursor="link">Explorar projetos</MagneticButton>
-            <MagneticButton href="#contato" data-cursor="link">Vamos conversar</MagneticButton>
-          </div>
+        <p className="hero__lede hero__reveal">A VNUP filma, edita e posta. Você só acompanha o resultado.</p>
+        <div className="hero__actions hero__reveal">
+          <MagneticButton variant="light" href="#trabalhos" arrow>Ver o que fazemos</MagneticButton>
+          <MagneticButton variant="glass" href="#contato">Pedir orçamento</MagneticButton>
         </div>
       </div>
-      <span className="mono hero__scroll" aria-hidden="true">Role para ver</span>
+
+      <a className="hero__scroll glass" href="#servicos">
+        <span className="hero__scroll-dot" aria-hidden="true" />
+        Role. Elas ainda não se tocaram.
+      </a>
     </section>
   );
 }

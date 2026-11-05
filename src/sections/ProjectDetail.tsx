@@ -58,8 +58,10 @@ export default function ProjectDetail({ project: p, origin, onClose }: { project
           <iframe
             src={p.embedUrl}
             title={`${p.title}: vídeo`}
-            allow="autoplay; fullscreen"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
           />
         ) : p.videoUrl ? (
@@ -74,7 +76,7 @@ export default function ProjectDetail({ project: p, origin, onClose }: { project
       </div>
       <div className="detail__body">
         <span className="mono">{p.number} — {p.category} · {p.year}</span>
-        <h2 id="detail-title" className="display detail__title">{p.title}</h2>
+        <h3 id="detail-title" className="display detail__title">{p.title}</h3>
         <p style={{ color: 'var(--muted)', maxWidth: '60ch', margin: 0, fontSize: 18 }}>{p.description}</p>
         <dl className="mono" style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '8px 24px', margin: 0 }}>
           <dt>Função</dt><dd style={{ margin: 0 }}>{p.role}</dd>

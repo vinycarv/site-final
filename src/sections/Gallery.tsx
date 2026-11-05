@@ -59,16 +59,16 @@ export default function Gallery() {
       <div ref={pin} className="gallery__pin" style={{ position: 'relative', minHeight: env.mobile ? undefined : '100svh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'clamp(88px,11vh,120px) 0' }}>
         <div className="section-head" style={{ paddingInline: 'var(--gutter)' }}>
           <MotionText as="h2" className="display gallery__title" mode="words">
-            Trabalhos
+            Trabalhos que prendem
           </MotionText>
-          <span className="mono">01 — Seleção</span>
+          <span className="mono">Passe o mouse. Duvido ver só um.</span>
         </div>
         <div ref={track} className="gallery__track">
           {projects.map((p) => (
             <WorkCard key={p.id} project={p} onOpen={(el) => open(p, el)} />
           ))}
         </div>
-        <span className="mono gallery__hint" aria-hidden="true">Role para avançar →</span>
+        <span className="mono gallery__hint" aria-hidden="true">Continue rolando →</span>
       </div>
 
       {current && <ProjectDetail project={current} origin={origin} onClose={close} />}
@@ -116,7 +116,11 @@ function WorkCard({ project: p, onOpen }: { project: Project; onOpen: (el: HTMLE
       type="button"
     >
       <div ref={frame} className="work__frame" style={{ ['--a' as string]: p.tone[0], ['--b' as string]: p.tone[1] }}>
-        <div className="work__cover" style={p.thumb ? { backgroundImage: `url(${p.thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined} />
+        <div className="work__cover">
+          {p.thumb && (
+            <img src={p.thumb} alt={`Capa do projeto ${p.title}: ${p.category}`} width={480} height={360} loading="lazy" decoding="async" />
+          )}
+        </div>
         {p.videoUrl && <video ref={video} className="work__video" src={p.videoUrl} muted playsInline preload="none" loop aria-hidden="true" />}
         <div className="work__glow" aria-hidden="true" />
         <span className="work__num" aria-hidden="true">{p.number}</span>

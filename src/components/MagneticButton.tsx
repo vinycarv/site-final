@@ -2,10 +2,10 @@ import { useRef, type ReactNode, type AnchorHTMLAttributes } from 'react';
 import { gsap } from '../lib/gsap';
 import { useEnvironment } from '../hooks/useEnvironment';
 
-type Props = AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode; variant?: 'primary' | 'ghost' | 'wa'; external?: boolean };
+type Props = AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode; variant?: 'primary' | 'ghost' | 'wa' | 'glass' | 'light'; external?: boolean; arrow?: boolean };
 
 // Botão que acompanha o cursor de leve, com limite de deslocamento, e volta com mola ao sair.
-export default function MagneticButton({ children, variant = 'ghost', external, className = '', ...rest }: Props) {
+export default function MagneticButton({ children, variant = 'ghost', external, arrow, className = '', ...rest }: Props) {
   const ref = useRef<HTMLAnchorElement>(null);
   const env = useEnvironment();
 
@@ -23,7 +23,7 @@ export default function MagneticButton({ children, variant = 'ghost', external, 
   return (
     <a
       ref={ref}
-      className={`btn btn--${variant} ${className}`}
+      className={`btn btn--${variant} ${variant === 'glass' ? 'glass' : ''} ${className}`}
       onPointerMove={move}
       onPointerLeave={leave}
       target={external ? '_blank' : undefined}
@@ -32,6 +32,11 @@ export default function MagneticButton({ children, variant = 'ghost', external, 
     >
       <span className="btn__fill" aria-hidden="true" />
       <span className="btn__label">{children}</span>
+      {arrow && (
+        <span className="btn__arrow" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+      )}
     </a>
   );
 }
