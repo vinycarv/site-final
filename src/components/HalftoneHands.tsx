@@ -161,7 +161,9 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
 
       hc.setTransform(1, 0, 0, 1, 0, 0);
       hc.clearRect(0, 0, hel.width, hel.height);
-      const hands = [{ sx: -1 }, { sx: 1 }]; // esquerda = imagem espelhada, direita = original
+      // esquerda = imagem espelhada na horizontal e na vertical (palma virada, como a mão de Adão);
+      // direita = original
+      const hands = [{ sx: -1, sy: -1 }, { sx: 1, sy: 1 }];
       for (const h of hands) {
         if (!handReady) continue;
         const d = gap + breathe;
@@ -169,14 +171,43 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
         const px = ox * co - oy * si, py = ox * si + oy * co;
         const tx = cx + px + mouse.px * -14 * h.sx;
         const ty = cy + py + mouse.py * -10 * h.sx;
-        const rot = ((h.sx * 24 + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
+        const rot = (((h.sx > 0 ? 24 : 30) + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
+        const place = (c: CanvasRenderingContext2D) => {
+          c.translate(tx, ty);
+          c.rotate(rot);
+          c.scale(h.sx * s, h.sy * s);
+          c.translate(-TIP[0], -TIP[1]);
+          c.drawImage(handImg, 0, 0);
+        };
+        // mão lisa por cima
         hc.save();
         hc.setTransform(dpr, 0, 0, dpr, 0, 0);
-        hc.translate(tx, ty);
-        hc.rotate(rot);
-        hc.scale(h.sx > 0 ? s : -s, s);
-        hc.translate(-TIP[0], -TIP[1]);
-        hc.drawImage(handImg, 0, 0);
+        place(hc);
+        hc.restore();
+        // a mesma mão também entra no meio-tom, só dentro da lente do mouse
+        if (mouse.x > -999) {
+          g.save();
+          g.beginPath();
+          g.arc(mouse.x, mouse.y, cellCss * 21, 0, Math.PI * 2);
+          g.clip();
+          g.filter = 'brightness(2.6) contrast(1.15)';
+          place(g);
+          g.restore();
+        }
+      }
+      // lente do mouse em cima das mãos: perto do cursor a mão lisa some suavemente
+      // e aparece a versão em pontos (ampliada e acesa pelo shader)
+      if (handReady && mouse.x > -999) {
+        const lr = cellCss * 20 * dpr;
+        const mx = mouse.x * dpr, my = mouse.y * dpr;
+        const lg = hc.createRadialGradient(mx, my, 0, mx, my, lr);
+        lg.addColorStop(0, 'rgba(0,0,0,1)');
+        lg.addColorStop(0.55, 'rgba(0,0,0,0.85)');
+        lg.addColorStop(1, 'rgba(0,0,0,0)');
+        hc.save();
+        hc.globalCompositeOperation = 'destination-out';
+        hc.fillStyle = lg;
+        hc.fillRect(mx - lr, my - lr, lr * 2, lr * 2);
         hc.restore();
       }
 
