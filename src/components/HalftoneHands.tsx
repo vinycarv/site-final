@@ -1,197 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { BOX, TIP, bakeHand } from './chromeHand';
 
-// Duas mãos robóticas desenhadas em código e renderizadas como meio-tom (pontos), em WebGL.
-// Cada ponto ganha tamanho conforme o brilho do desenho de origem. O cursor funciona como
-// lente (aumenta e acende os pontos) e o clique solta uma onda a partir de onde foi tocado.
+// Fundo de meio-tom (pontos, em WebGL) com duas mãos robóticas cromadas por cima, em vetor liso.
+// O cursor funciona como lente nos pontos (aumenta e acende) e o clique solta uma onda de luz.
 //
 // mode="hero": as mãos se aproximam do logo, mas nunca se tocam (o laço fica aberto).
 // mode="touch": no fim da página, as pontas dos dedos se encontram e acendem a tela.
 
 type Mode = 'hero' | 'touch';
 type Props = { mode?: Mode; className?: string; onTouch?: () => void };
-
-// ---------------------------------------------------------------------------
-// Mão robótica estilo Ultron, desenhada em escala de cinza (o brilho vira o tamanho do ponto).
-// Mão apontando para +x; a ponta do indicador fica em TIP. Ângulos em graus, + curva para +y.
-// Proporções humanas: dedos finos, três falanges, polegar separado, palma com placas.
-// ---------------------------------------------------------------------------
-const TIP: [number, number] = [150, -58];
-const TAU = Math.PI * 2;
-
-const L = (x: number, a = 1) => {
-  const v = Math.max(0, Math.min(255, Math.round(255 * x)));
-  return `rgba(${v},${v},${v},${a})`;
-};
-
-// Placa cônica de metal: gradiente cilíndrico, brilho especular, fresta de painel e parafuso.
-function plate(g: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, lum: number, detail = true) {
-  const len = Math.hypot(x2 - x1, y2 - y1);
-  const R = Math.max(r1, r2);
-  const c = Math.min(r1, r2) * 0.45;
-  g.save();
-  g.translate(x1, y1);
-  g.rotate(Math.atan2(y2 - y1, x2 - x1));
-  const gr = g.createLinearGradient(0, -R, 0, R);
-  gr.addColorStop(0, L(lum * 0.4));
-  gr.addColorStop(0.16, L(lum));
-  gr.addColorStop(0.4, L(lum * 0.88));
-  gr.addColorStop(0.72, L(lum * 0.38));
-  gr.addColorStop(0.9, L(lum * 0.12));
-  gr.addColorStop(1, L(lum * 0.55)); // luz de borda embaixo: separa a silhueta do fundo
-  g.fillStyle = gr;
-  g.beginPath();
-  g.moveTo(c, -r1);
-  g.lineTo(len - c, -r2);
-  g.quadraticCurveTo(len, -r2, len, -r2 + c);
-  g.lineTo(len, r2 - c);
-  g.quadraticCurveTo(len, r2, len - c, r2);
-  g.lineTo(c, r1);
-  g.quadraticCurveTo(0, r1, 0, r1 - c);
-  g.lineTo(0, -r1 + c);
-  g.quadraticCurveTo(0, -r1, c, -r1);
-  g.closePath();
-  g.fill();
-  if (detail) {
-    g.lineCap = 'round';
-    g.strokeStyle = L(Math.min(1, lum * 1.3));
-    g.lineWidth = Math.max(1.6, R * 0.15);
-    g.beginPath();
-    g.moveTo(len * 0.14, -r1 * 0.5);
-    g.lineTo(len * 0.78, -r2 * 0.5);
-    g.stroke();
-    g.lineCap = 'butt';
-    g.strokeStyle = L(0.02);
-    g.lineWidth = Math.max(1.8, R * 0.17);
-    const px = len * 0.64, pr = r1 + (r2 - r1) * 0.64;
-    g.beginPath(); g.moveTo(px, -pr * 0.95); g.lineTo(px, pr * 0.95); g.stroke();
-    g.fillStyle = L(1);
-    g.beginPath(); g.arc(len * 0.32, r1 * 0.12, Math.max(1.1, R * 0.09), 0, TAU); g.fill();
-  }
-  g.restore();
-}
-
-// Articulação esférica com encaixe escuro, anel e núcleo luminoso.
-function joint(g: CanvasRenderingContext2D, x: number, y: number, r: number, glow = 1) {
-  g.fillStyle = L(0.03);
-  g.beginPath(); g.arc(x, y, r * 1.14, 0, TAU); g.fill();
-  const rg = g.createRadialGradient(x - r * 0.3, y - r * 0.38, r * 0.08, x, y, r);
-  rg.addColorStop(0, L(1));
-  rg.addColorStop(0.45, L(0.6));
-  rg.addColorStop(1, L(0.1));
-  g.fillStyle = rg;
-  g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
-  g.strokeStyle = L(0.04);
-  g.lineWidth = Math.max(1.2, r * 0.16);
-  g.beginPath(); g.arc(x, y, r * 0.52, 0, TAU); g.stroke();
-  g.fillStyle = L(glow);
-  g.beginPath(); g.arc(x, y, r * 0.22, 0, TAU); g.fill();
-}
-
-type Finger = { k: [number, number]; len: [number, number, number]; ang: [number, number, number]; r: number; lum: number };
-
-function finger(g: CanvasRenderingContext2D, f: Finger) {
-  const pts: [number, number][] = [f.k];
-  f.len.forEach((l, i) => {
-    const a = (f.ang[i] * Math.PI) / 180;
-    const [px, py] = pts[i];
-    pts.push([px + Math.cos(a) * l, py + Math.sin(a) * l]);
-  });
-  const rr = [f.r, f.r * 0.9, f.r * 0.8, f.r * 0.5];
-  // cabo (tendão) correndo pelo dorso do dedo
-  g.strokeStyle = L(0.9);
-  g.lineWidth = 1.6;
-  g.beginPath();
-  g.moveTo(pts[0][0], pts[0][1] - f.r * 0.1);
-  for (let i = 1; i < 4; i++) g.lineTo(pts[i][0], pts[i][1] - rr[i] * 0.15);
-  g.stroke();
-  for (let i = 0; i < 3; i++) plate(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], rr[i], rr[i + 1], f.lum);
-  // ponta do dedo: calota e sensor
-  const [tx, ty] = pts[3];
-  const ta = (f.ang[2] * Math.PI) / 180;
-  g.fillStyle = L(f.lum * 0.8);
-  g.beginPath(); g.arc(tx, ty, rr[3] * 0.95, 0, TAU); g.fill();
-  g.fillStyle = L(1);
-  g.beginPath(); g.arc(tx - Math.cos(ta) * rr[3] * 0.2, ty - Math.sin(ta) * rr[3] * 0.2, rr[3] * 0.34, 0, TAU); g.fill();
-  joint(g, pts[1][0], pts[1][1], rr[1] * 0.92);
-  joint(g, pts[2][0], pts[2][1], rr[2] * 0.9);
-}
-
-function collar(g: CanvasRenderingContext2D, x: number, w: number, r: number, lum: number) {
-  const gr = g.createLinearGradient(0, -r, 0, r);
-  gr.addColorStop(0, L(lum * 0.4)); gr.addColorStop(0.2, L(lum)); gr.addColorStop(0.55, L(lum * 0.5)); gr.addColorStop(1, L(lum * 0.45));
-  g.fillStyle = gr;
-  g.beginPath(); g.roundRect(x, -r, w, r * 2, 5); g.fill();
-}
-
-function drawHand(g: CanvasRenderingContext2D) {
-  // ---- antebraço: tubo segmentado, vazamentos de ventilação e pistões hidráulicos ----
-  plate(g, -760, 6, -215, 0, 72, 52, 0.58, false);
-  g.strokeStyle = L(0.03);
-  g.lineWidth = 7;
-  for (const x of [-640, -520, -410, -320]) { g.beginPath(); g.moveTo(x, -64); g.lineTo(x + 4, 64); g.stroke(); }
-  g.lineWidth = 3;
-  for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(-470 + i * 12, -34); g.lineTo(-470 + i * 12, 34); g.stroke(); }
-  g.strokeStyle = L(0.85); g.lineWidth = 3; g.lineCap = 'round';
-  g.beginPath(); g.moveTo(-740, -40); g.lineTo(-230, -30); g.stroke();
-  for (const sy of [-1, 1]) {
-    g.fillStyle = L(0.12); g.fillRect(-380, sy * 40 - 8, 150, 16);
-    plate(g, -380, sy * 40, -240, sy * 34, 8, 7, 0.85, false);
-    g.fillStyle = L(0.95); g.fillRect(-240, sy * 35 - 3, 46, 6);
-    g.strokeStyle = L(0.8); g.lineWidth = 2;
-    g.beginPath(); g.moveTo(-620, sy * 12); g.bezierCurveTo(-470, sy * 30, -330, sy * 6, -214, sy * 18); g.stroke();
-  }
-  // ---- punho: três anéis ----
-  collar(g, -222, 15, 60, 0.7);
-  collar(g, -204, 13, 56, 0.8);
-  collar(g, -188, 11, 52, 0.62);
-
-  // ---- palma: placa traseira chanfrada com sulcos e núcleo de energia ----
-  const pg = g.createLinearGradient(0, -80, 0, 86);
-  pg.addColorStop(0, L(0.38)); pg.addColorStop(0.18, L(0.84)); pg.addColorStop(0.52, L(0.55)); pg.addColorStop(0.85, L(0.18)); pg.addColorStop(1, L(0.5));
-  g.fillStyle = pg;
-  g.beginPath();
-  g.moveTo(-176, -46);
-  g.lineTo(-108, -66);
-  g.quadraticCurveTo(-60, -80, -2, -72);
-  g.lineTo(6, 78);
-  g.quadraticCurveTo(-60, 92, -110, 66);
-  g.lineTo(-176, 48);
-  g.closePath();
-  g.fill();
-  g.strokeStyle = L(0.02); g.lineWidth = 4;
-  g.beginPath(); g.moveTo(-132, -62); g.quadraticCurveTo(-120, 0, -134, 58); g.stroke();
-  g.beginPath(); g.moveTo(-52, -76); g.quadraticCurveTo(-42, 0, -52, 84); g.stroke();
-  // tendões dos metacarpos
-  const knuckles: [number, number][] = [[2, -58], [2, -20], [2, 18], [0, 54]];
-  knuckles.forEach(([kx, ky], i) => {
-    g.strokeStyle = L(0.03); g.lineWidth = 5;
-    g.beginPath(); g.moveTo(kx - 6, ky + 3); g.lineTo(-172, ky * 0.3 + 3 + i); g.stroke();
-    g.strokeStyle = L(0.95); g.lineWidth = 2.2;
-    g.beginPath(); g.moveTo(kx - 6, ky); g.lineTo(-172, ky * 0.3 + i); g.stroke();
-  });
-  // núcleo de energia (repulsor)
-  const cx = -92, cy = 4;
-  g.fillStyle = L(0.02); g.beginPath(); g.arc(cx, cy, 34, 0, TAU); g.fill();
-  const ring = g.createLinearGradient(0, cy - 30, 0, cy + 30);
-  ring.addColorStop(0, L(1)); ring.addColorStop(0.5, L(0.45)); ring.addColorStop(1, L(0.8));
-  g.fillStyle = ring; g.beginPath(); g.arc(cx, cy, 29, 0, TAU); g.fill();
-  g.fillStyle = L(0.04); g.beginPath(); g.arc(cx, cy, 21, 0, TAU); g.fill();
-  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, 19);
-  glow.addColorStop(0, L(1)); glow.addColorStop(0.5, L(0.85)); glow.addColorStop(1, L(0.1));
-  g.fillStyle = glow; g.beginPath(); g.arc(cx, cy, 19, 0, TAU); g.fill();
-
-  // ---- polegar: base carnuda (placa) + 3 falanges ----
-  plate(g, -128, -26, -88, -56, 30, 22, 0.72, false);
-  finger(g, { k: [-88, -56], len: [56, 46, 38], ang: [-50, -34, -16], r: 14, lum: 0.86 });
-  joint(g, -88, -56, 17);
-
-  // ---- dedos: o indicador estendido, os outros curvados em repouso ----
-  finger(g, { k: [2, 54], len: [58, 38, 32], ang: [10, 38, 68], r: 10, lum: 0.6 });
-  finger(g, { k: [2, 18], len: [70, 46, 38], ang: [6, 32, 60], r: 11.5, lum: 0.7 });
-  finger(g, { k: [2, -20], len: [76, 50, 41], ang: [2, 22, 48], r: 12, lum: 0.82 });
-  finger(g, { k: [2, -58], len: [68, 44, 38], ang: [0, -1, 3], r: 12, lum: 1 });
-  for (const [kx, ky] of knuckles) joint(g, kx, ky, 14.5, 0.9);
-}
 
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
 const FRAG = `precision mediump float;
@@ -223,11 +40,16 @@ void main(){
 export default function HalftoneHands({ mode = 'hero', className = '', onTouch }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const handsRef = useRef<HTMLCanvasElement>(null);
   const touchCb = useRef(onTouch);
   touchCb.current = onTouch;
 
   useEffect(() => {
     const el = canvas.current!;
+    const hel = handsRef.current!;
+    const hc = hel.getContext('2d')!;
+    let sprite: HTMLCanvasElement | null = null;
+    const handScale = () => Math.min(W * (W / H < 0.85 ? 0.86 : 0.74), H * 1.3) / 640;
     const host = wrap.current!;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const src = document.createElement('canvas');
@@ -275,6 +97,8 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       dpr = Math.min(devicePixelRatio || 1, 1.75);
       cellCss = W < 760 ? 3.6 : 5;
       el.width = Math.round(W * dpr); el.height = Math.round(H * dpr);
+      hel.width = el.width; hel.height = el.height;
+      sprite = bakeHand(Math.min(handScale() * dpr, 3800 / BOX.w));
       cols = Math.ceil(W / cellCss); rows = Math.ceil(H / cellCss);
       src.width = cols; src.height = rows;
       noise.width = cols; noise.height = rows;
@@ -314,7 +138,7 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       if (mode === 'hero') gap = tile + 26 + (1 - ease) * 220 + p * -10;
       else gap = 3 + Math.pow(1 - p, 1.4) * Math.min(W, 900) * 0.42;
       const breathe = reduced ? 0 : Math.sin(t * 1.1) * (mode === 'hero' ? 7 : 4 * (1 - p));
-      const s = Math.min(W * (portrait ? 0.86 : 0.74), H * 1.3) / 640;
+      const s = handScale();
 
       // halo de luz no centro (onde fica o logo / onde os dedos se encontram)
       const glowR = (mode === 'hero' ? tile * 3.2 : 90 + p * 150 + flash * 120) + Math.sin(t * 2) * 6;
@@ -328,6 +152,8 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       mouse.px += ((mouse.tx > -999 ? (mouse.tx / W - 0.5) : 0) - mouse.px) * 0.05;
       mouse.py += ((mouse.ty > -999 ? (mouse.ty / H - 0.5) : 0) - mouse.py) * 0.05;
 
+      hc.setTransform(1, 0, 0, 1, 0, 0);
+      hc.clearRect(0, 0, hel.width, hel.height);
       for (const side of [-1, 1]) {
         // side -1: mão de baixo/esquerda; side 1: mão de cima/direita
         const dirx = Math.cos(ang) * side, diry = -Math.sin(ang) * side;
@@ -335,13 +161,15 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
         const tx = cx + dirx * d + mouse.px * -14 * side;
         const ty = cy + diry * d + mouse.py * -10 * side;
         const rot = Math.atan2(-diry, -dirx) + (reduced ? 0 : Math.sin(t * 0.7 + side) * 0.02);
-        g.save();
-        g.translate(tx, ty);
-        g.rotate(rot);
-        g.scale(s, side === 1 ? -s : s);
-        g.translate(-TIP[0], -TIP[1]);
-        drawHand(g);
-        g.restore();
+        if (!sprite) continue;
+        hc.save();
+        hc.setTransform(dpr, 0, 0, dpr, 0, 0);
+        hc.translate(tx, ty);
+        hc.rotate(rot);
+        hc.scale(s, side === 1 ? -s : s);
+        hc.translate(-TIP[0], -TIP[1]);
+        hc.drawImage(sprite, BOX.x0, BOX.y0, BOX.w, BOX.h);
+        hc.restore();
       }
 
       if (mode === 'touch' && p > 0.97 && !touched) {
@@ -431,6 +259,7 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
   return (
     <div ref={wrap} className={`halftone ${className}`} aria-hidden="true">
       <canvas ref={canvas} />
+      <canvas ref={handsRef} className="halftone__hands" />
     </div>
   );
 }
