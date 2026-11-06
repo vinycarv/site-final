@@ -10,77 +10,187 @@ import { useEffect, useRef } from 'react';
 type Mode = 'hero' | 'touch';
 type Props = { mode?: Mode; className?: string; onTouch?: () => void };
 
-type Seg = [number, number, number, number, number, number]; // x1 y1 x2 y2 raio brilho
+// ---------------------------------------------------------------------------
+// Mão robótica estilo Ultron, desenhada em escala de cinza (o brilho vira o tamanho do ponto).
+// Mão apontando para +x; a ponta do indicador fica em TIP. Ângulos em graus, + curva para +y.
+// Proporções humanas: dedos finos, três falanges, polegar separado, palma com placas.
+// ---------------------------------------------------------------------------
+const TIP: [number, number] = [150, -58];
+const TAU = Math.PI * 2;
 
-// Mão apontando para +x. A ponta do indicador fica em TIP.
-const TIP: [number, number] = [272, -58];
-const FAR: Seg[] = [
-  // dedos ao fundo (mais escuros): anelar e mínimo dobrados
-  [40, 22, 84, 26, 19, 0.5], [90, 33, 88, 64, 17, 0.45], [82, 72, 58, 72, 15, 0.4],
-  [28, 52, 62, 58, 15, 0.42], [68, 64, 66, 86, 14, 0.38],
-];
-const NEAR: Seg[] = [
-  // médio dobrado
-  [45, -12, 96, -8, 20, 0.7], [102, 0, 102, 38, 18, 0.62], [96, 48, 68, 50, 16, 0.55],
-  // indicador estendido, em três falanges
-  [52, -50, 132, -55, 21, 1], [142, -56, 202, -58, 19, 1], [212, -58, 256, -58, 16, 1],
-  // polegar
-  [-72, -52, -14, -92, 24, 0.85], [-2, -98, 42, -100, 19, 0.9],
-];
-const JOINTS: [number, number, number][] = [
-  [137, -55, 12], [207, -57, 11], [-8, -95, 13], [99, -4, 12], [-140, 0, 40],
-];
+const L = (x: number, a = 1) => {
+  const v = Math.max(0, Math.min(255, Math.round(255 * x)));
+  return `rgba(${v},${v},${v},${a})`;
+};
 
-function capsule(g: CanvasRenderingContext2D, s: Seg, k = 1) {
-  const [x1, y1, x2, y2, r, lum] = s;
+// Placa cônica de metal: gradiente cilíndrico, brilho especular, fresta de painel e parafuso.
+function plate(g: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, r1: number, r2: number, lum: number, detail = true) {
   const len = Math.hypot(x2 - x1, y2 - y1);
+  const R = Math.max(r1, r2);
+  const c = Math.min(r1, r2) * 0.45;
   g.save();
   g.translate(x1, y1);
   g.rotate(Math.atan2(y2 - y1, x2 - x1));
-  const grad = g.createLinearGradient(0, -r, 0, r);
-  const v = (x: number) => `rgb(${Math.round(255 * x * k)},${Math.round(255 * x * k)},${Math.round(255 * x * k)})`;
-  grad.addColorStop(0, v(lum * 0.6));
-  grad.addColorStop(0.25, v(lum));
-  grad.addColorStop(0.55, v(lum * 0.7));
-  grad.addColorStop(0.82, v(lum * 0.3));
-  grad.addColorStop(1, v(lum * 0.75)); // contraluz na borda: separa a silhueta do fundo
-  g.fillStyle = grad;
+  const gr = g.createLinearGradient(0, -R, 0, R);
+  gr.addColorStop(0, L(lum * 0.4));
+  gr.addColorStop(0.16, L(lum));
+  gr.addColorStop(0.4, L(lum * 0.88));
+  gr.addColorStop(0.72, L(lum * 0.38));
+  gr.addColorStop(0.9, L(lum * 0.12));
+  gr.addColorStop(1, L(lum * 0.55)); // luz de borda embaixo: separa a silhueta do fundo
+  g.fillStyle = gr;
   g.beginPath();
-  g.roundRect(-r, -r, len + 2 * r, 2 * r, r);
+  g.moveTo(c, -r1);
+  g.lineTo(len - c, -r2);
+  g.quadraticCurveTo(len, -r2, len, -r2 + c);
+  g.lineTo(len, r2 - c);
+  g.quadraticCurveTo(len, r2, len - c, r2);
+  g.lineTo(c, r1);
+  g.quadraticCurveTo(0, r1, 0, r1 - c);
+  g.lineTo(0, -r1 + c);
+  g.quadraticCurveTo(0, -r1, c, -r1);
+  g.closePath();
   g.fill();
-  // brilho especular fino, dá a cara de metal
-  g.fillStyle = v(Math.min(1, lum * 1.15));
-  g.fillRect(0, -r * 0.55, len, Math.max(1.5, r * 0.12));
+  if (detail) {
+    g.lineCap = 'round';
+    g.strokeStyle = L(Math.min(1, lum * 1.3));
+    g.lineWidth = Math.max(1.6, R * 0.15);
+    g.beginPath();
+    g.moveTo(len * 0.14, -r1 * 0.5);
+    g.lineTo(len * 0.78, -r2 * 0.5);
+    g.stroke();
+    g.lineCap = 'butt';
+    g.strokeStyle = L(0.02);
+    g.lineWidth = Math.max(1.8, R * 0.17);
+    const px = len * 0.64, pr = r1 + (r2 - r1) * 0.64;
+    g.beginPath(); g.moveTo(px, -pr * 0.95); g.lineTo(px, pr * 0.95); g.stroke();
+    g.fillStyle = L(1);
+    g.beginPath(); g.arc(len * 0.32, r1 * 0.12, Math.max(1.1, R * 0.09), 0, TAU); g.fill();
+  }
   g.restore();
 }
 
+// Articulação esférica com encaixe escuro, anel e núcleo luminoso.
+function joint(g: CanvasRenderingContext2D, x: number, y: number, r: number, glow = 1) {
+  g.fillStyle = L(0.03);
+  g.beginPath(); g.arc(x, y, r * 1.14, 0, TAU); g.fill();
+  const rg = g.createRadialGradient(x - r * 0.3, y - r * 0.38, r * 0.08, x, y, r);
+  rg.addColorStop(0, L(1));
+  rg.addColorStop(0.45, L(0.6));
+  rg.addColorStop(1, L(0.1));
+  g.fillStyle = rg;
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = L(0.04);
+  g.lineWidth = Math.max(1.2, r * 0.16);
+  g.beginPath(); g.arc(x, y, r * 0.52, 0, TAU); g.stroke();
+  g.fillStyle = L(glow);
+  g.beginPath(); g.arc(x, y, r * 0.22, 0, TAU); g.fill();
+}
+
+type Finger = { k: [number, number]; len: [number, number, number]; ang: [number, number, number]; r: number; lum: number };
+
+function finger(g: CanvasRenderingContext2D, f: Finger) {
+  const pts: [number, number][] = [f.k];
+  f.len.forEach((l, i) => {
+    const a = (f.ang[i] * Math.PI) / 180;
+    const [px, py] = pts[i];
+    pts.push([px + Math.cos(a) * l, py + Math.sin(a) * l]);
+  });
+  const rr = [f.r, f.r * 0.9, f.r * 0.8, f.r * 0.5];
+  // cabo (tendão) correndo pelo dorso do dedo
+  g.strokeStyle = L(0.9);
+  g.lineWidth = 1.6;
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1] - f.r * 0.1);
+  for (let i = 1; i < 4; i++) g.lineTo(pts[i][0], pts[i][1] - rr[i] * 0.15);
+  g.stroke();
+  for (let i = 0; i < 3; i++) plate(g, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], rr[i], rr[i + 1], f.lum);
+  // ponta do dedo: calota e sensor
+  const [tx, ty] = pts[3];
+  const ta = (f.ang[2] * Math.PI) / 180;
+  g.fillStyle = L(f.lum * 0.8);
+  g.beginPath(); g.arc(tx, ty, rr[3] * 0.95, 0, TAU); g.fill();
+  g.fillStyle = L(1);
+  g.beginPath(); g.arc(tx - Math.cos(ta) * rr[3] * 0.2, ty - Math.sin(ta) * rr[3] * 0.2, rr[3] * 0.34, 0, TAU); g.fill();
+  joint(g, pts[1][0], pts[1][1], rr[1] * 0.92);
+  joint(g, pts[2][0], pts[2][1], rr[2] * 0.9);
+}
+
+function collar(g: CanvasRenderingContext2D, x: number, w: number, r: number, lum: number) {
+  const gr = g.createLinearGradient(0, -r, 0, r);
+  gr.addColorStop(0, L(lum * 0.4)); gr.addColorStop(0.2, L(lum)); gr.addColorStop(0.55, L(lum * 0.5)); gr.addColorStop(1, L(lum * 0.45));
+  g.fillStyle = gr;
+  g.beginPath(); g.roundRect(x, -r, w, r * 2, 5); g.fill();
+}
+
 function drawHand(g: CanvasRenderingContext2D) {
-  // antebraço: cilindro com faixas de encaixe
-  capsule(g, [-760, 4, -170, 0, 64, 0.62]);
-  g.fillStyle = 'rgb(10,10,10)';
-  for (const x of [-560, -420, -290]) g.fillRect(x, -70, 7, 140);
-  g.fillStyle = 'rgb(200,200,200)';
-  g.fillRect(-700, 20, 480, 5); // pistão
-  FAR.forEach((s) => capsule(g, s));
-  // palma
-  const pg = g.createLinearGradient(0, -78, 0, 78);
-  pg.addColorStop(0, 'rgb(150,150,150)');
-  pg.addColorStop(0.3, 'rgb(215,215,215)');
-  pg.addColorStop(1, 'rgb(60,60,60)');
+  // ---- antebraço: tubo segmentado, vazamentos de ventilação e pistões hidráulicos ----
+  plate(g, -760, 6, -215, 0, 72, 52, 0.58, false);
+  g.strokeStyle = L(0.03);
+  g.lineWidth = 7;
+  for (const x of [-640, -520, -410, -320]) { g.beginPath(); g.moveTo(x, -64); g.lineTo(x + 4, 64); g.stroke(); }
+  g.lineWidth = 3;
+  for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(-470 + i * 12, -34); g.lineTo(-470 + i * 12, 34); g.stroke(); }
+  g.strokeStyle = L(0.85); g.lineWidth = 3; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(-740, -40); g.lineTo(-230, -30); g.stroke();
+  for (const sy of [-1, 1]) {
+    g.fillStyle = L(0.12); g.fillRect(-380, sy * 40 - 8, 150, 16);
+    plate(g, -380, sy * 40, -240, sy * 34, 8, 7, 0.85, false);
+    g.fillStyle = L(0.95); g.fillRect(-240, sy * 35 - 3, 46, 6);
+    g.strokeStyle = L(0.8); g.lineWidth = 2;
+    g.beginPath(); g.moveTo(-620, sy * 12); g.bezierCurveTo(-470, sy * 30, -330, sy * 6, -214, sy * 18); g.stroke();
+  }
+  // ---- punho: três anéis ----
+  collar(g, -222, 15, 60, 0.7);
+  collar(g, -204, 13, 56, 0.8);
+  collar(g, -188, 11, 52, 0.62);
+
+  // ---- palma: placa traseira chanfrada com sulcos e núcleo de energia ----
+  const pg = g.createLinearGradient(0, -80, 0, 86);
+  pg.addColorStop(0, L(0.38)); pg.addColorStop(0.18, L(0.84)); pg.addColorStop(0.52, L(0.55)); pg.addColorStop(0.85, L(0.18)); pg.addColorStop(1, L(0.5));
   g.fillStyle = pg;
   g.beginPath();
-  g.roundRect(-130, -76, 180, 150, 34);
+  g.moveTo(-176, -46);
+  g.lineTo(-108, -66);
+  g.quadraticCurveTo(-60, -80, -2, -72);
+  g.lineTo(6, 78);
+  g.quadraticCurveTo(-60, 92, -110, 66);
+  g.lineTo(-176, 48);
+  g.closePath();
   g.fill();
-  g.fillStyle = 'rgb(20,20,20)';
-  g.fillRect(-60, -70, 4, 138);
-  // articulação do pulso
-  NEAR.forEach((s) => capsule(g, s));
-  for (const [x, y, r] of JOINTS) {
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
-    g.fillStyle = 'rgb(30,30,30)'; g.fill();
-    g.beginPath(); g.arc(x, y, r * 0.55, 0, Math.PI * 2);
-    g.fillStyle = 'rgb(235,235,235)'; g.fill();
-  }
+  g.strokeStyle = L(0.02); g.lineWidth = 4;
+  g.beginPath(); g.moveTo(-132, -62); g.quadraticCurveTo(-120, 0, -134, 58); g.stroke();
+  g.beginPath(); g.moveTo(-52, -76); g.quadraticCurveTo(-42, 0, -52, 84); g.stroke();
+  // tendões dos metacarpos
+  const knuckles: [number, number][] = [[2, -58], [2, -20], [2, 18], [0, 54]];
+  knuckles.forEach(([kx, ky], i) => {
+    g.strokeStyle = L(0.03); g.lineWidth = 5;
+    g.beginPath(); g.moveTo(kx - 6, ky + 3); g.lineTo(-172, ky * 0.3 + 3 + i); g.stroke();
+    g.strokeStyle = L(0.95); g.lineWidth = 2.2;
+    g.beginPath(); g.moveTo(kx - 6, ky); g.lineTo(-172, ky * 0.3 + i); g.stroke();
+  });
+  // núcleo de energia (repulsor)
+  const cx = -92, cy = 4;
+  g.fillStyle = L(0.02); g.beginPath(); g.arc(cx, cy, 34, 0, TAU); g.fill();
+  const ring = g.createLinearGradient(0, cy - 30, 0, cy + 30);
+  ring.addColorStop(0, L(1)); ring.addColorStop(0.5, L(0.45)); ring.addColorStop(1, L(0.8));
+  g.fillStyle = ring; g.beginPath(); g.arc(cx, cy, 29, 0, TAU); g.fill();
+  g.fillStyle = L(0.04); g.beginPath(); g.arc(cx, cy, 21, 0, TAU); g.fill();
+  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, 19);
+  glow.addColorStop(0, L(1)); glow.addColorStop(0.5, L(0.85)); glow.addColorStop(1, L(0.1));
+  g.fillStyle = glow; g.beginPath(); g.arc(cx, cy, 19, 0, TAU); g.fill();
+
+  // ---- polegar: base carnuda (placa) + 3 falanges ----
+  plate(g, -128, -26, -88, -56, 30, 22, 0.72, false);
+  finger(g, { k: [-88, -56], len: [56, 46, 38], ang: [-50, -34, -16], r: 14, lum: 0.86 });
+  joint(g, -88, -56, 17);
+
+  // ---- dedos: o indicador estendido, os outros curvados em repouso ----
+  finger(g, { k: [2, 54], len: [58, 38, 32], ang: [10, 38, 68], r: 10, lum: 0.6 });
+  finger(g, { k: [2, 18], len: [70, 46, 38], ang: [6, 32, 60], r: 11.5, lum: 0.7 });
+  finger(g, { k: [2, -20], len: [76, 50, 41], ang: [2, 22, 48], r: 12, lum: 0.82 });
+  finger(g, { k: [2, -58], len: [68, 44, 38], ang: [0, -1, 3], r: 12, lum: 1 });
+  for (const [kx, ky] of knuckles) joint(g, kx, ky, 14.5, 0.9);
 }
 
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
@@ -163,7 +273,7 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       const r = host.getBoundingClientRect();
       W = Math.max(1, r.width); H = Math.max(1, r.height);
       dpr = Math.min(devicePixelRatio || 1, 1.75);
-      cellCss = W < 760 ? 5.5 : 7;
+      cellCss = W < 760 ? 3.6 : 5;
       el.width = Math.round(W * dpr); el.height = Math.round(H * dpr);
       cols = Math.ceil(W / cellCss); rows = Math.ceil(H / cellCss);
       src.width = cols; src.height = rows;
@@ -198,13 +308,13 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
 
       const portrait = W / H < 0.85;
       const cx = W / 2, cy = H * (mode === 'hero' ? (portrait ? 0.3 : 0.44) : (portrait ? 0.3 : 0.42));
-      const ang = (portrait ? 38 : 24) * (Math.PI / 180);
+      const ang = (portrait ? 58 : 24) * (Math.PI / 180);
       const tile = mode === 'hero' ? Math.min(W, H) * (portrait ? 0.15 : 0.085) : 0;
       let gap: number;
       if (mode === 'hero') gap = tile + 26 + (1 - ease) * 220 + p * -10;
       else gap = 3 + Math.pow(1 - p, 1.4) * Math.min(W, 900) * 0.42;
       const breathe = reduced ? 0 : Math.sin(t * 1.1) * (mode === 'hero' ? 7 : 4 * (1 - p));
-      const s = Math.min(W * (portrait ? 0.95 : 0.72), H * 1.25) / 780;
+      const s = Math.min(W * (portrait ? 0.86 : 0.74), H * 1.3) / 640;
 
       // halo de luz no centro (onde fica o logo / onde os dedos se encontram)
       const glowR = (mode === 'hero' ? tile * 3.2 : 90 + p * 150 + flash * 120) + Math.sin(t * 2) * 6;
