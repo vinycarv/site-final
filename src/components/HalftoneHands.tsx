@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BOX, TIPS, bakeHand, type Who } from './chromeHand';
+
 
 // Fundo de meio-tom (pontos, em WebGL) com duas mãos robóticas cromadas por cima, em vetor liso.
 // O cursor funciona como lente nos pontos (aumenta e acende) e o clique solta uma onda de luz.
@@ -48,8 +48,13 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
     const el = canvas.current!;
     const hel = handsRef.current!;
     const hc = hel.getContext('2d')!;
-    let sprites: Record<Who, HTMLCanvasElement> | null = null;
-    const handScale = () => Math.min(W * (W / H < 0.85 ? 0.86 : 0.6), H * 1.05) / 640;
+    // mão criada pelo Vinícius (public/hand.png), sem fundo; a ponta do indicador fica em TIP
+    const handImg = new Image();
+    let handReady = false;
+    handImg.onload = () => { handReady = true; };
+    handImg.src = '/hand.png';
+    const TIP = [42, 535];
+    const handScale = () => Math.min(W * (W / H < 0.85 ? 0.62 : 0.5), H * 0.62) / 576;
     const host = wrap.current!;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const src = document.createElement('canvas');
@@ -98,8 +103,6 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       cellCss = W < 760 ? 3.6 : 5;
       el.width = Math.round(W * dpr); el.height = Math.round(H * dpr);
       hel.width = el.width; hel.height = el.height;
-      const kk = Math.min(handScale() * dpr, 2600 / BOX.w, Math.sqrt(6e6 / (BOX.w * BOX.h)));
-      sprites = { adam: bakeHand(kk, 'adam'), deus: bakeHand(kk, 'deus') };
       cols = Math.ceil(W / cellCss); rows = Math.ceil(H / cellCss);
       src.width = cols; src.height = rows;
       noise.width = cols; noise.height = rows;
@@ -158,26 +161,22 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
 
       hc.setTransform(1, 0, 0, 1, 0, 0);
       hc.clearRect(0, 0, hel.width, hel.height);
-      const hands: { who: Who; sx: number; base: number }[] = [
-        { who: 'adam', sx: -1, base: 4 }, // mão de baixo/esquerda, pulso caído
-        { who: 'deus', sx: 1, base: 176 }, // mão de cima/direita, indicador firme
-      ];
+      const hands = [{ sx: -1 }, { sx: 1 }]; // esquerda = imagem espelhada, direita = original
       for (const h of hands) {
-        if (!sprites) continue;
+        if (!handReady) continue;
         const d = gap + breathe;
         const ox = h.sx * d, oy = -h.sx * lift;
         const px = ox * co - oy * si, py = ox * si + oy * co;
         const tx = cx + px + mouse.px * -14 * h.sx;
         const ty = cy + py + mouse.py * -10 * h.sx;
-        const rot = ((h.base + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
-        const tip = TIPS[h.who];
+        const rot = ((h.sx * 24 + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
         hc.save();
         hc.setTransform(dpr, 0, 0, dpr, 0, 0);
         hc.translate(tx, ty);
         hc.rotate(rot);
-        hc.scale(s, h.who === 'deus' ? -s : s);
-        hc.translate(-tip[0], -tip[1]);
-        hc.drawImage(sprites[h.who], BOX.x0, BOX.y0, BOX.w, BOX.h);
+        hc.scale(h.sx > 0 ? s : -s, s);
+        hc.translate(-TIP[0], -TIP[1]);
+        hc.drawImage(handImg, 0, 0);
         hc.restore();
       }
 
