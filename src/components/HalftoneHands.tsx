@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { BOX, TIP, bakeHand } from './chromeHand';
+import { BOX, TIPS, bakeHand, type Who } from './chromeHand';
 
 // Fundo de meio-tom (pontos, em WebGL) com duas mãos robóticas cromadas por cima, em vetor liso.
 // O cursor funciona como lente nos pontos (aumenta e acende) e o clique solta uma onda de luz.
@@ -48,8 +48,8 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
     const el = canvas.current!;
     const hel = handsRef.current!;
     const hc = hel.getContext('2d')!;
-    let sprite: HTMLCanvasElement | null = null;
-    const handScale = () => Math.min(W * (W / H < 0.85 ? 0.86 : 0.74), H * 1.3) / 640;
+    let sprites: Record<Who, HTMLCanvasElement> | null = null;
+    const handScale = () => Math.min(W * (W / H < 0.85 ? 0.86 : 0.6), H * 1.05) / 640;
     const host = wrap.current!;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const src = document.createElement('canvas');
@@ -98,7 +98,8 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       cellCss = W < 760 ? 3.6 : 5;
       el.width = Math.round(W * dpr); el.height = Math.round(H * dpr);
       hel.width = el.width; hel.height = el.height;
-      sprite = bakeHand(Math.min(handScale() * dpr, 3800 / BOX.w));
+      const kk = Math.min(handScale() * dpr, 2600 / BOX.w, Math.sqrt(6e6 / (BOX.w * BOX.h)));
+      sprites = { adam: bakeHand(kk, 'adam'), deus: bakeHand(kk, 'deus') };
       cols = Math.ceil(W / cellCss); rows = Math.ceil(H / cellCss);
       src.width = cols; src.height = rows;
       noise.width = cols; noise.height = rows;
@@ -131,14 +132,17 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
       g.setTransform(1 / cellCss, 0, 0, 1 / cellCss, 0, 0);
 
       const portrait = W / H < 0.85;
-      const cx = W / 2, cy = H * (mode === 'hero' ? (portrait ? 0.3 : 0.44) : (portrait ? 0.3 : 0.42));
-      const ang = (portrait ? 58 : 24) * (Math.PI / 180);
+      const cx = W / 2, cy = H * (mode === 'hero' ? (portrait ? 0.3 : 0.4) : (portrait ? 0.3 : 0.42));
+      // composição horizontal, como no quadro; no celular a cena inteira gira para a diagonal
+      const th = (portrait ? -52 : 0) * (Math.PI / 180);
+      const co = Math.cos(th), si = Math.sin(th);
       const tile = mode === 'hero' ? Math.min(W, H) * (portrait ? 0.15 : 0.085) : 0;
       let gap: number;
-      if (mode === 'hero') gap = tile + 26 + (1 - ease) * 220 + p * -10;
+      if (mode === 'hero') gap = tile + 30 + (1 - ease) * 240 + p * -10;
       else gap = 3 + Math.pow(1 - p, 1.4) * Math.min(W, 900) * 0.42;
       const breathe = reduced ? 0 : Math.sin(t * 1.1) * (mode === 'hero' ? 7 : 4 * (1 - p));
       const s = handScale();
+      const lift = 14 * Math.min(1, (gap + breathe) / 60); // um dedo mais alto que o outro; no toque se alinham
 
       // halo de luz no centro (onde fica o logo / onde os dedos se encontram)
       const glowR = (mode === 'hero' ? tile * 3.2 : 90 + p * 150 + flash * 120) + Math.sin(t * 2) * 6;
@@ -154,21 +158,26 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
 
       hc.setTransform(1, 0, 0, 1, 0, 0);
       hc.clearRect(0, 0, hel.width, hel.height);
-      for (const side of [-1, 1]) {
-        // side -1: mão de baixo/esquerda; side 1: mão de cima/direita
-        const dirx = Math.cos(ang) * side, diry = -Math.sin(ang) * side;
+      const hands: { who: Who; sx: number; base: number }[] = [
+        { who: 'adam', sx: -1, base: 4 }, // mão de baixo/esquerda, pulso caído
+        { who: 'deus', sx: 1, base: 176 }, // mão de cima/direita, indicador firme
+      ];
+      for (const h of hands) {
+        if (!sprites) continue;
         const d = gap + breathe;
-        const tx = cx + dirx * d + mouse.px * -14 * side;
-        const ty = cy + diry * d + mouse.py * -10 * side;
-        const rot = Math.atan2(-diry, -dirx) + (reduced ? 0 : Math.sin(t * 0.7 + side) * 0.02);
-        if (!sprite) continue;
+        const ox = h.sx * d, oy = -h.sx * lift;
+        const px = ox * co - oy * si, py = ox * si + oy * co;
+        const tx = cx + px + mouse.px * -14 * h.sx;
+        const ty = cy + py + mouse.py * -10 * h.sx;
+        const rot = ((h.base + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
+        const tip = TIPS[h.who];
         hc.save();
         hc.setTransform(dpr, 0, 0, dpr, 0, 0);
         hc.translate(tx, ty);
         hc.rotate(rot);
-        hc.scale(s, side === 1 ? -s : s);
-        hc.translate(-TIP[0], -TIP[1]);
-        hc.drawImage(sprite, BOX.x0, BOX.y0, BOX.w, BOX.h);
+        hc.scale(s, h.who === 'deus' ? -s : s);
+        hc.translate(-tip[0], -tip[1]);
+        hc.drawImage(sprites[h.who], BOX.x0, BOX.y0, BOX.w, BOX.h);
         hc.restore();
       }
 

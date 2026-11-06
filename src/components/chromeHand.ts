@@ -6,9 +6,17 @@
 // Cromo = reflexo de ambiente: faixa clara no topo, horizonte escuro, rebote claro embaixo.
 // ---------------------------------------------------------------------------
 type G = CanvasRenderingContext2D;
+type Finger = { k: [number, number]; len: [number, number, number]; ang: [number, number, number]; r: number; m: number };
 
-export const TIP: [number, number] = [150, -58];
-export const BOX = { x0: -800, y0: -178, w: 1010, h: 366 };
+export const BOX = { x0: -800, y0: -190, w: 1010, h: 640 };
+export type Who = 'adam' | 'deus';
+
+// Poses inspiradas na "Criação de Adão" (Michelangelo, domínio público), em versão robótica:
+// - adam: pulso caído, dedos soltos e pesando para baixo, o indicador quase relaxado;
+// - deus: braço firme, indicador reto e apontado, os outros dedos recolhidos.
+// wrist = quanto o antebraço gira em relação à mão (graus, negativo = antebraço sobe para a direita).
+type Pose = { wrist: number; index: Finger; middle: Finger; ring: Finger; pinky: Finger; thumb: Finger };
+
 const TAU = Math.PI * 2;
 
 const L = (v: number, a = 1) => {
@@ -96,7 +104,6 @@ function cable(g: G, ax: number, ay: number, bx: number, by: number, a: number, 
   g.beginPath(); g.moveTo(ax, ay - 0.6); g.quadraticCurveTo(cx, cy - 0.6, bx, by - 0.6); g.stroke();
 }
 
-type Finger = { k: [number, number]; len: [number, number, number]; ang: [number, number, number]; r: number; m: number };
 
 function finger(g: G, f: Finger) {
   const pts: [number, number][] = [f.k];
@@ -122,6 +129,38 @@ function finger(g: G, f: Finger) {
   g.beginPath(); g.arc(tx - Math.cos(A[2]) * rr[3] * 0.3, ty - Math.sin(A[2]) * rr[3] * 0.3, rr[3] * 0.3, 0, TAU); g.fill();
 }
 
+
+const POSES: Record<Who, Pose> = {
+  adam: {
+    wrist: -30,
+    index: { k: [2, -58], len: [72, 47, 41], ang: [4, 9, 14], r: 12.5, m: 1 },
+    middle: { k: [2, -20], len: [80, 53, 44], ang: [12, 34, 58], r: 12.5, m: 0.94 },
+    ring: { k: [2, 18], len: [74, 49, 41], ang: [18, 42, 68], r: 12, m: 0.86 },
+    pinky: { k: [0, 54], len: [61, 41, 35], ang: [24, 50, 76], r: 10.5, m: 0.78 },
+    thumb: { k: [-88, -56], len: [56, 46, 38], ang: [-40, -22, -6], r: 14, m: 1 },
+  },
+  deus: {
+    wrist: 10,
+    index: { k: [2, -58], len: [72, 47, 41], ang: [-1, -2, -3], r: 12.5, m: 1 },
+    middle: { k: [2, -20], len: [80, 53, 44], ang: [6, 22, 40], r: 12.5, m: 0.94 },
+    ring: { k: [2, 18], len: [74, 49, 41], ang: [12, 32, 54], r: 12, m: 0.86 },
+    pinky: { k: [0, 54], len: [61, 41, 35], ang: [16, 40, 66], r: 10.5, m: 0.78 },
+    thumb: { k: [-88, -56], len: [56, 46, 38], ang: [-34, -10, 10], r: 14, m: 1 },
+  },
+};
+
+// Ponta do indicador de cada pose (a mão é posicionada por este ponto).
+export const TIPS: Record<Who, [number, number]> = (() => {
+  const out = {} as Record<Who, [number, number]>;
+  (Object.keys(POSES) as Who[]).forEach((w) => {
+    const f = POSES[w].index;
+    let x = f.k[0], y = f.k[1];
+    f.len.forEach((l, i) => { const a = (f.ang[i] * Math.PI) / 180; x += Math.cos(a) * l; y += Math.sin(a) * l; });
+    out[w] = [x, y];
+  });
+  return out;
+})();
+
 function ring(g: G, x: number, w: number, r: number, m: number) {
   g.save();
   g.beginPath(); g.roundRect(x, -r, w, r * 2, 5);
@@ -142,8 +181,13 @@ function bevelPoly(g: G, pts: [number, number][], m: number, y0: number, y1: num
   g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1.2; g.stroke();
 }
 
-function drawHand(g: G) {
-  // ---- antebraço: tubo segmentado com anéis, pistões e cabos ----
+function drawHand(g: G, who: Who) {
+  const pose = POSES[who];
+  // ---- antebraço: tubo segmentado com anéis, pistões e cabos (gira em torno do pulso) ----
+  g.save();
+  g.translate(-190, 0);
+  g.rotate((pose.wrist * Math.PI) / 180);
+  g.translate(190, 0);
   plate(g, -770, 6, -215, 0, 74, 52, 0.7, null);
   for (const x of [-650, -530, -420, -325]) {
     g.strokeStyle = '#020202'; g.lineWidth = 8;
@@ -166,6 +210,7 @@ function drawHand(g: G) {
   ring(g, -224, 16, 61, 0.9);
   ring(g, -205, 13, 57, 1);
   ring(g, -189, 11, 53, 0.8);
+  g.restore();
 
   // ---- palma: placa dorsal chanfrada, metacarpos e núcleo de energia ----
   g.fillStyle = '#050505';
@@ -188,25 +233,25 @@ function drawHand(g: G) {
 
   // ---- polegar: base (eminência tenar) + 3 falanges ----
   plate(g, -132, -24, -88, -56, 31, 23, 0.8, null);
-  finger(g, { k: [-88, -56], len: [56, 46, 38], ang: [-50, -34, -16], r: 14, m: 1 });
+  finger(g, pose.thumb);
   joint(g, -88, -56, 17.5);
 
-  // ---- dedos: indicador estendido; os demais curvados em repouso ----
-  finger(g, { k: [2, 54], len: [58, 38, 32], ang: [10, 38, 68], r: 10.5, m: 0.78 });
-  finger(g, { k: [2, 18], len: [70, 46, 38], ang: [6, 32, 60], r: 12, m: 0.86 });
-  finger(g, { k: [2, -20], len: [76, 50, 41], ang: [2, 22, 48], r: 12.5, m: 0.94 });
-  finger(g, { k: [2, -58], len: [68, 44, 38], ang: [0, -1, 3], r: 12.5, m: 1 });
+  // ---- dedos ----
+  finger(g, pose.pinky);
+  finger(g, pose.ring);
+  finger(g, pose.middle);
+  finger(g, pose.index);
   for (const [kx, ky] of knuckles) joint(g, kx, ky, 15);
 }
 
 // Desenha a mão uma vez e devolve o sprite (com um brilho suave ao redor).
-export function bakeHand(k: number): HTMLCanvasElement {
+export function bakeHand(k: number, who: Who): HTMLCanvasElement {
   const w = Math.ceil(BOX.w * k), h = Math.ceil(BOX.h * k);
   const tmp = document.createElement('canvas');
   tmp.width = w; tmp.height = h;
   const t = tmp.getContext('2d')!;
   t.setTransform(k, 0, 0, k, -BOX.x0 * k, -BOX.y0 * k);
-  drawHand(t);
+  drawHand(t, who);
   const out = document.createElement('canvas');
   out.width = w; out.height = h;
   const o = out.getContext('2d')!;
