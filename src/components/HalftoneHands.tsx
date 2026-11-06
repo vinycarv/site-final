@@ -170,7 +170,8 @@ export default function HalftoneHands({ mode = 'hero', className = '', onTouch }
         const ox = h.sx * d, oy = -h.sx * lift;
         const px = ox * co - oy * si, py = ox * si + oy * co;
         const tx = cx + px + mouse.px * -14 * h.sx;
-        const ty = cy + py + mouse.py * -10 * h.sx;
+        // no desktop a mão da esquerda fica ~1 cm mais baixa (cerca de 38px numa tela de 860px de altura)
+        const ty = cy + py + mouse.py * -10 * h.sx + (h.sx < 0 && !portrait ? H * 0.045 : 0);
         const rot = (((h.sx > 0 ? 24 : 30) + (reduced ? 0 : Math.sin(t * 0.7 + h.sx) * 1.1)) * Math.PI) / 180 + th;
         const place = (c: CanvasRenderingContext2D) => {
           c.translate(tx, ty);
