@@ -17,7 +17,7 @@ export default function Compare() {
   return (
     <section className="compare" id="antes-depois" aria-labelledby="compare-title">
       <div className="section-head">
-        <h2 id="compare-title" className="display">Bruto <span className="serif-em">vs.</span> VNUP</h2>
+        <h2 id="compare-title" className="display">Bruto <span className="serif-em">vs.</span> NVUP</h2>
         <span className="mono">Arraste. A diferença aparece na hora.</span>
       </div>
       <div
@@ -29,9 +29,9 @@ export default function Compare() {
         data-cursor="gallery"
       >
         <img className="compare__img compare__img--raw" src={shot} alt="Quadro de vídeo sem tratamento: cores lavadas e sem contraste" width={480} height={360} loading="lazy" decoding="async" />
-        <img className="compare__img compare__img--pro" src={shot} alt="O mesmo quadro depois da edição e do tratamento de cor da VNUP" width={480} height={360} loading="lazy" decoding="async" />
+        <img className="compare__img compare__img--pro" src={shot} alt="O mesmo quadro depois da edição e do tratamento de cor da NVUP" width={480} height={360} loading="lazy" decoding="async" />
         <span className="compare__tag compare__tag--l glass">Bruto</span>
-        <span className="compare__tag compare__tag--r glass">VNUP</span>
+        <span className="compare__tag compare__tag--r glass">NVUP</span>
         <span className="compare__handle glass" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>

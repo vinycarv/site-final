@@ -1,6 +1,6 @@
-# VNUP
+# NVUP
 
-> VNUP é uma agência e produtora audiovisual brasileira, fundada pelo editor e filmmaker Vinícius Carvalho. Faz captação, edição, motion, color grading e postagem de conteúdo para marcas, num pacote mensal fixo.
+> NVUP é uma agência e produtora audiovisual brasileira, fundada pelo editor e filmmaker Vinícius Carvalho. Faz captação, edição, motion, color grading e postagem de conteúdo para marcas, num pacote mensal fixo.
 
 ## Serviços
 - Captação audiovisual (gravação no local)

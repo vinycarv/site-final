@@ -51,9 +51,9 @@ export default function Navigation({ ready }: { ready: boolean }) {
   return (
     <>
       <header className={`nav ${solid ? 'is-solid' : ''}`} style={{ opacity: ready ? 1 : 0, transition: 'opacity .8s .2s, background .5s, border-color .5s' }}>
-        <a className="nav__brand" href="#top" data-cursor="link" aria-label="VNUP, início">
+        <a className="nav__brand" href="#top" data-cursor="link" aria-label="NVUP, início">
           <LogoMark className="nav__mark" />
-          <span>VNUP</span>
+          <span>NVUP</span>
         </a>
         <nav aria-label="Principal" className="nav__pill glass">
           <ul className="nav__links">

@@ -1,8 +1,8 @@
 // Conteúdo centralizado. Troque textos, links e projetos aqui; o site inteiro se atualiza.
 
 export const site = {
-  brand: 'VNUP',
-  name: 'VNUP',
+  brand: 'NVUP',
+  name: 'NVUP',
   founder: 'Vinícius Carvalho',
   role: 'Agência & Produtora audiovisual',
   url: 'https://vinicarv.com.br/',
@@ -10,7 +10,7 @@ export const site = {
   instagram: 'https://www.instagram.com/viny_carv',
   instagramHandle: '@viny_carv',
   // WhatsApp: +55 11 93536-0112
-  whatsapp: 'https://wa.me/5511935360112?text=Oi%2C%20vi%20o%20site%20da%20VNUP%20e%20quero%20conversar',
+  whatsapp: 'https://wa.me/5511935360112?text=Oi%2C%20vi%20o%20site%20da%20NVUP%20e%20quero%20conversar',
   whatsappLabel: '+55 11 93536-0112',
 };
 

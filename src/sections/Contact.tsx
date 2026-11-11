@@ -38,7 +38,7 @@ export default function Contact() {
         </div>
       </section>
       <footer className="footer">
-        <a href="#top" className="footer__brand" aria-label="VNUP, voltar ao topo">
+        <a href="#top" className="footer__brand" aria-label="NVUP, voltar ao topo">
           <LogoMark className="footer__mark" />
           <LogoWord className="footer__word" />
         </a>
@@ -49,7 +49,7 @@ export default function Contact() {
           <a href={site.instagram} target="_blank" rel="noopener noreferrer">Instagram {site.instagramHandle}</a>
           <a href={`mailto:${site.email}`}>{site.email}</a>
         </nav>
-        <span className="footer__copy">© {new Date().getFullYear()} VNUP · Agência & Produtora</span>
+        <span className="footer__copy">© {new Date().getFullYear()} NVUP · Agência & Produtora</span>
       </footer>
     </>
   );

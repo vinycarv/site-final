@@ -6,7 +6,7 @@ import { LogoMark } from '../components/Logo';
 import { stats } from '../data/content';
 import { useEnvironment } from '../hooks/useEnvironment';
 
-// Abertura: duas mãos robóticas em meio-tom apontam para o símbolo da VNUP.
+// Abertura: duas mãos robóticas em meio-tom apontam para o símbolo da NVUP.
 // Elas chegam perto, mas não se tocam. A resposta fica para o fim da página.
 export default function Hero({ ready }: { ready: boolean }) {
   const env = useEnvironment();
@@ -46,7 +46,7 @@ export default function Hero({ ready }: { ready: boolean }) {
         <h1 id="hero-title" className="hero__title hero__reveal">
           Sua marca em <span className="glass-text">movimento</span>.
         </h1>
-        <p className="hero__lede hero__reveal">A VNUP filma, edita e posta. Você só acompanha o resultado.</p>
+        <p className="hero__lede hero__reveal">A NVUP filma, edita e posta. Você só acompanha o resultado.</p>
         <div className="hero__actions hero__reveal">
           <MagneticButton variant="light" href="#trabalhos" arrow>Ver o que fazemos</MagneticButton>
           <MagneticButton variant="glass" href="#contato">Pedir orçamento</MagneticButton>
