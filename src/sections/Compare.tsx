@@ -6,7 +6,7 @@ import { projects } from '../data/content';
 export default function Compare() {
   const [v, setV] = useState(50);
   const box = useRef<HTMLDivElement>(null);
-  const shot = projects.find((p) => p.thumb)?.thumb ?? '';
+  const shot = (projects.find((p) => p.thumb.includes('ytimg')) ?? projects.find((p) => p.thumb))?.thumb ?? '';
 
   const drag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.buttons !== 1 && e.pointerType === 'mouse') return;
