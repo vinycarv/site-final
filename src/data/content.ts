@@ -45,7 +45,7 @@ export const projects: Project[] = [
   {
     id: 'festividades', number: '01', title: 'Festividades', category: 'Eventos', year: '2026',
     description: 'Vídeo de abertura da Festividade dos Jovens Pré UMADEMP Mauá 2026. Captação com drone e câmera, narração e edição com o tema Alfa e Ômega.',
-    role: 'Captação, drone, edição, cor', format: '16:9', thumb: 'https://drive.google.com/thumbnail?id=1iwiEeRfYxWVjdtTXwMvXO_f_0-2uI0dO&sz=w1280', videoUrl: '', embedUrl: 'https://drive.google.com/file/d/1iwiEeRfYxWVjdtTXwMvXO_f_0-2uI0dO/preview',
+    role: 'Captação, drone, edição, cor', format: '16:9', thumb: '/assets/festividades-capa.jpg', videoUrl: '', embedUrl: 'https://drive.google.com/file/d/1iwiEeRfYxWVjdtTXwMvXO_f_0-2uI0dO/preview',
     externalUrl: '',
     tone: ['#ff5a1f', '#0b0b0d'],
   },
