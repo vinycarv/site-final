@@ -5,7 +5,7 @@ export const site = {
   name: 'NVUP',
   founder: 'Vinícius Carvalho',
   role: 'Agência & Produtora audiovisual',
-  url: 'https://vinicarv.com.br/',
+  url: 'https://vinycarv.com.br/',
   email: 'vinysilva1914@gmail.com',
   instagram: 'https://www.instagram.com/viny_carv',
   instagramHandle: '@viny_carv',
