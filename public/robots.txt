@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vinicarv.com.br/sitemap.xml
+Sitemap: https://vinycarv.com.br/sitemap.xml
